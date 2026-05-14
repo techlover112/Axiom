@@ -54,7 +54,7 @@ VERSION_HEADER = version.hpp
 
 VERSION_MAJOR := 0
 VERSION_MINOR := 9
-VERSION_MICRO := 6
+VERSION_MICRO := 9
 
 #GFXBUILD	:=	$(ROMFS)/gfx
 
@@ -75,13 +75,13 @@ CXXFLAGS	:=  $(CFLAGS) -fno-rtti -fno-exceptions -std=c++20
 ASFLAGS	    :=	-g $(ARCH)
 LDFLAGS	     =	-specs=3dsx.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map) $(OPTIMIZE)
 
-LIBS	    := -lcitro2d -lcitro3d -lctru -lm
+LIBS	    := -lcitro2d -lcitro3d -lctru -lmbedtls -lmbedcrypto -lmbedx509 -lm
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
 # include and lib
 #---------------------------------------------------------------------------------
-LIBDIRS	:= $(CTRULIB)
+LIBDIRS	:= $(CTRULIB) $(PORTLIBS)
 
 
 #---------------------------------------------------------------------------------

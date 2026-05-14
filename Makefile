@@ -29,7 +29,7 @@ SSL_OUT             := $(AXIOM_UPDATE_OUT)/$(SSL_TITLE_ID).ips
 MIIVERSE_OUT_JPN    := $(AXIOM_UPDATE_OUT)/$(MIIVERSE_ID_JPN).ips
 MIIVERSE_OUT_USA    := $(AXIOM_UPDATE_OUT)/$(MIIVERSE_ID_USA).ips
 MIIVERSE_OUT_EUR    := $(AXIOM_UPDATE_OUT)/$(MIIVERSE_ID_EUR).ips
-PLUGIN_OUT          := $(AXIOM_UPDATE_OUT)/axiom.elf
+PLUGIN_OUT          := $(AXIOM_UPDATE_OUT)/axiom.3gx
 
 all:
 	@rm -rf $(OUT_FOLDER)
@@ -81,7 +81,7 @@ all:
 	@$(MAKE) -C plugin
 
 # copy plugin to patches folder
-	@cp -r plugin/plugin.elf $(PATCHES_OUT_FOLDER)/$(PLUGIN_OUT)
+	@cp -r plugin/plugin.3gx $(PATCHES_OUT_FOLDER)/$(PLUGIN_OUT)
 	
 # copy patches output to all 3 output folders
 	@find $(PATCHES_OUT_FOLDER) -mindepth 1 -maxdepth 1 -exec cp -r {} $(3DSX_OUT_FOLDER) \; 2>/dev/null || true

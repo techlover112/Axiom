@@ -8,7 +8,6 @@
 #include "common.hpp"
 #include "states/LumaValidation.hpp"
 #include "states/MainUI.hpp"
-#include "states/TEST.hpp"
 
 MainStruct mainStruct = MainStruct();
 
@@ -87,11 +86,14 @@ int main()
 {
 	// Initialize the libs
     romfsInit();
+	fsInit();
+	cfguInit();
 	nsInit();
 	ndmuInit();
 	frdInit(false);
 	actInit(false);
     ndspInit();
+
 	gfxInitDefault();
 	
 	C3D_Init(C3D_DEFAULT_CMDBUF_SIZE);
@@ -141,14 +143,7 @@ int main()
 		if (mainStruct.state == 0) {
 			exit = LumaValidation::checkIfLumaOptionsEnabled(&mainStruct, top_screen, bottom_screen, kDown, kHeld, touch);
 		} else {
-            
             exit = MainUI::drawUI(&mainStruct, top_screen, bottom_screen, kDown, kHeld, touch);
-            
-            //if (mainStruct.welcome == 0) {
-                //exit = TEST::drawUI(&mainStruct, top_screen, bottom_screen, kDown, kHeld, touch);
-            //} else {
-                //exit = MainUI::drawUI(&mainStruct, top_screen, bottom_screen, kDown, kHeld, touch);
-            //}
 		}
 		
 		mainStruct.lastState = mainStruct.state;
@@ -169,6 +164,8 @@ int main()
 	actExit();
 	frdExit();
 	ndmuExit();
+	cfguExit();
+	fsExit();
 
 	if (mainStruct.needsReboot) {
 		NS_RebootSystem();

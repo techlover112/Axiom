@@ -10,31 +10,55 @@
 #include <algorithm>
 #include <string>
 
-#define AXIOM_UPDATE_PATH "/3ds/axiom/update"
+#define AXIOM_UPDATE_PATH       "/3ds/axiom/update"
+#define AXIOM_BACKUP_PATH       "/3ds/axiom/backup"
+#define AXIOM_TEMP_PATH         "/3ds/axiom/pretendo_temp"
+#define AXIOM_HANDOFF_FILE      "/3ds/axiom/pretendo_handoff"
+#define AXIOM_MANIFEST_URL      "https://cdn.brewtendo.cc/pretendo/manifest.json"
+#define AXIOM_CDN_BASE_URL      "https://cdn.brewtendo.cc/patches"
+
+#define NIMBUS_TITLE_ID         0x000400000D40D200ULL
+
+#define MIN_FREE_SPACE_BYTES    (50ULL * 1024ULL * 1024ULL)
+
+struct PatchFile {
+    const char* filename;   
+    const char* lumaPath;   
+};
+
+static constexpr PatchFile AXIOM_PATCH_FILES[] = {
+    { "0004013000003202.ips", "/luma/sysmodules/0004013000003202.ips"      },
+    { "0004013000003802.ips", "/luma/sysmodules/0004013000003802.ips"      },
+    { "0004013000002902.ips", "/luma/sysmodules/0004013000002902.ips"      },
+    { "0004013000002E02.ips", "/luma/sysmodules/0004013000002E02.ips"      },
+    { "0004013000002F02.ips", "/luma/sysmodules/0004013000002F02.ips"      },
+    { "000400300000BC02.ips", "/luma/titles/000400300000BC02/code.ips"     },
+    { "000400300000BD02.ips", "/luma/titles/000400300000BD02/code.ips"     },
+    { "000400300000BE02.ips", "/luma/titles/000400300000BE02/code.ips"     },
+    { "axiom.3gx",            "/luma/plugins/axiom.3gx"                   },
+    { "bver-prod.pem",        "/3ds/bver-prod.pem"                        },
+};
+static constexpr int AXIOM_PATCH_FILE_COUNT =
+    (int)(sizeof(AXIOM_PATCH_FILES) / sizeof(AXIOM_PATCH_FILES[0]));
 
 enum class NascEnvironment : u8 {
-	NASC_ENV_Prod = 0, // nintendo
-	NASC_ENV_Test = 1, // pretendo
-	NASC_ENV_Dev = 2
+    NASC_ENV_Prod = 0, // Nintendo
+    NASC_ENV_Test = 1, // Pretendo  
+    NASC_ENV_Dev  = 2  // Brewtendo 
 };
 
 enum class CFWSystemInfoField : s32 {
-	FirmwareVersion = 0,
-	CommitHash = 1,
-	ConfigVersion = 2,
-	ConfigBits = 3 // only go through 0-3 because we only need 0, 2, and 3
+    FirmwareVersion = 0,
+    CommitHash      = 1,
+    ConfigVersion   = 2,
+    ConfigBits      = 3
 };
 
 enum class LumaConfigBitIndex : s32 {
-	AutobootEmunand = 0,
-	ExternalFirmsAndModules = 1,
-	GamePatching = 2 // only go through 0-2 because we only need 1 and 2
+    AutobootEmunand         = 0,
+    ExternalFirmsAndModules = 1,
+    GamePatching            = 2
 };
-
-const int targetLumaVersion = 13;
-const int GetSystemInfoCFW = 0x10000; // the type for Luma3DS' GetSystemInfo hook that returns CFW info
-const u32 defaultColor = C2D_Color32(108, 98, 64, 255);
-const u32 infoColor = C2D_Color32(45, 45, 44, 255);
 
 enum class PromptResult {
     None,
@@ -43,110 +67,119 @@ enum class PromptResult {
 };
 
 enum class PromptStatus {
-	Unknown,
-    BNIDUnlink
+    Unknown,
+    BNIDUnlink,
+    PretendoSwitch,       
+    PretendoSwitchLowSD,  
+    PretendoIntercept,    
+    BrewtendoCDNFail,    
+};
+
+enum class SwapPhase {
+    Idle,
+    CheckingSpace,
+    BackingUp,
+    Downloading,
+    Moving,
+    SwitchingAccount,
+    Done,
+    Failed
 };
 
 struct PromptState {
-    bool active = false;
-    std::string message;
-    PromptResult result = PromptResult::None;
-	PromptStatus status = PromptStatus::Unknown;
+    bool         active  = false;
+    std::string  message;
+    PromptResult result  = PromptResult::None;
+    PromptStatus status  = PromptStatus::Unknown;
 };
 
 struct MainStruct {
-	C2D_Sprite debug_button;
-	C2D_Sprite debug_header;
-	C2D_Sprite go_back;
-	C2D_Sprite header;
-	C2D_Sprite nintendo_unloaded_deselected;
-	C2D_Sprite nintendo_unloaded_selected;
-	C2D_Sprite nintendo_loaded_selected;
-	C2D_Sprite nintendo_loaded_deselected;
-	C2D_Sprite brewtendo_unloaded_deselected;
-	C2D_Sprite brewtendo_unloaded_selected;
-	C2D_Sprite brewtendo_loaded_selected;
-	C2D_Sprite brewtendo_loaded_deselected;
-	C2D_Sprite top;
+    C2D_Sprite debug_button;
+    C2D_Sprite debug_header;
+    C2D_Sprite go_back;
+    C2D_Sprite header;
+    C2D_Sprite nintendo_unloaded_deselected;
+    C2D_Sprite nintendo_unloaded_selected;
+    C2D_Sprite nintendo_loaded_selected;
+    C2D_Sprite nintendo_loaded_deselected;
+    C2D_Sprite brewtendo_unloaded_deselected;
+    C2D_Sprite brewtendo_unloaded_selected;
+    C2D_Sprite brewtendo_loaded_selected;
+    C2D_Sprite brewtendo_loaded_deselected;
+    C2D_Sprite top;
     C2D_Sprite bottom;
 
-	u32 screen = 0;
-	u32 state = 0;
-	u32 lastState = 0;
-    u32 welcome = 1;
+    u32 screen    = 0;
+    u32 state     = 0;
+    u32 lastState = 0;
+    u32 welcome   = 1;
 
-	NascEnvironment currentAccount = NascEnvironment::NASC_ENV_Prod;
-	NascEnvironment buttonSelected = NascEnvironment::NASC_ENV_Prod;
+    NascEnvironment currentAccount = NascEnvironment::NASC_ENV_Prod;
+    NascEnvironment buttonSelected = NascEnvironment::NASC_ENV_Prod;
 
-	bool firstRunOfState = true;
+    bool firstRunOfState  = true;
+    bool buttonWasPressed = false;
+    bool needsReboot      = false;
+    bool updateChecked    = false;
+    bool musicStarted     = false;
 
-	bool buttonWasPressed = false;
-	bool needsReboot = false;
-	bool updateChecked = false;
-    bool musicStarted = false;
+    bool pretendoInterceptChecked = false; 
+    bool pretendoInterceptActive  = false; 
 
-	char errorString[256];
+    SwapPhase   swapPhase    = SwapPhase::Idle;
+    std::string swapStatusMsg;
+    u64         sdFreeBytes  = 0;       
 
-	// startup checking variables
-	s64 firmwareVersion;
-	std::tuple<u8, u8, u8> lumaVersion;
+    char errorString[256];
 
-	s64 configVersion;
-	std::tuple<u8, u8> lumaConfigVersion;
+    s64 firmwareVersion;
+    std::tuple<u8, u8, u8> lumaVersion;
+    s64 configVersion;
+    std::tuple<u8, u8> lumaConfigVersion;
+    s64  lumaOptions;
+    bool gamePatchingEnabled;
+    bool externalFirmsAndModulesEnabled;
 
-	s64 lumaOptions;
-	bool gamePatchingEnabled;
-	bool externalFirmsAndModulesEnabled;
-
-	PromptState prompt;
+    PromptState prompt;
 };
 
+const int  targetLumaVersion = 13;
+const int  GetSystemInfoCFW  = 0x10000;
+const u32  defaultColor      = C2D_Color32(108, 98, 64, 255);
+const u32  infoColor         = C2D_Color32(45, 45, 44, 255);
+
 #define LOG_AXIOM_ERROR(mainStruct, fmt) \
-	if (mainStruct->errorString[0] == 0) {                                       \
-		snprintf(mainStruct->errorString, sizeof(mainStruct->errorString), fmt); \
-	}
+    if (mainStruct->errorString[0] == 0) {                                       \
+        snprintf(mainStruct->errorString, sizeof(mainStruct->errorString), fmt); \
+    }
 
 #define LOGF_AXIOM_ERROR(mainStruct, fmt, ...) \
-	if (mainStruct->errorString[0] == 0) {                                                    \
-		snprintf(mainStruct->errorString, sizeof(mainStruct->errorString), fmt, __VA_ARGS__); \
-	}
+    if (mainStruct->errorString[0] == 0) {                                                    \
+        snprintf(mainStruct->errorString, sizeof(mainStruct->errorString), fmt, __VA_ARGS__); \
+    }
 
 #define handleResult(action, mainStruct, name) \
-	rc = action;                                                                \
-	if (R_FAILED(rc)) {                                                         \
-		LOGF_AXIOM_ERROR(mainStruct, "%s failed with error: %08lx", name, rc); \
-		printf("%s failed with error: %08lx\n\n", name, rc);                    \
-	}
+    rc = action;                                                                \
+    if (R_FAILED(rc)) {                                                         \
+        LOGF_AXIOM_ERROR(mainStruct, "%s failed with error: %08lx", name, rc); \
+        printf("%s failed with error: %08lx\n\n", name, rc);                   \
+    }
 
-// credit to the universal-team for most/all of the code past here
-extern C2D_Font font;
+extern C2D_Font    font;
 extern C2D_TextBuf textBuf;
-extern CFG_Region loadedSystemFont;
+extern CFG_Region  loadedSystemFont;
 
-void GetStringSize(float size, float *width, float *height, const char *text);
-
-/*
-	Get String or Text Height.
-
-	float size: The Textsize.
-	std::string Text: The Text.
-	C2D_font fnt: (Optional) The wanted C2D_font. Is nullptr by default.
-*/
-
-float GetStringHeight(float size, const char *text);
-void DrawString(float size, u32 color, std::string text, int flags);
-
-void DrawControls();
-
-// this is kinda from citro2d
+void       GetStringSize(float size, float *width, float *height, const char *text);
+float      GetStringHeight(float size, const char *text);
+void       DrawString(float size, u32 color, std::string text, int flags);
+void       DrawControls();
 CFG_Region GetSystemRegion();
-
-// code thats mostly by me again
-void DrawVersionString();
+void       DrawVersionString();
 
 bool GetLumaOptionByIndex(LumaConfigBitIndex index, s64 options);
-s64 GetSystemInfoField(s32 category, CFWSystemInfoField accessor);
+s64  GetSystemInfoField(s32 category, CFWSystemInfoField accessor);
 std::tuple<u8, u8, u8> UnpackLumaVersion(s64 packed_version);
-std::tuple<u8, u8> UnpackConfigVersion(s64 packed_config_version);
-
+std::tuple<u8, u8>     UnpackConfigVersion(s64 packed_config_version);
 void drawLumaInfo(MainStruct *mainStruct);
+
+u64 GetSDFreeBytes();
