@@ -11,15 +11,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: build toolchain container
-      run: docker build . -t builder
-    - uses: a
-    - name: Install dependencies
-      run: make
-
-    - name: Run check
-      run: make check
-
-    - name: Run distcheck
-      run: make distcheck
+     - uses: actions/checkout@v4
+     - name: build toolchain container
+       run: docker build . -t builder
+     - uses: ammaraskar/gcc-problem-matcher@master
+     - name: build Axiom
+       run: docker run --rm -v ${PWD}:/app -w /app builder
+     - uses: actions/upload-artifact@v7
+       with:
+         name: axiom
+         path: dist/
