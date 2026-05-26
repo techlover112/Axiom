@@ -38,5 +38,5 @@ RUN ${DEVKITPRO}/tools/bin/dkp-pacman -Syu --noconfirm \
 RUN for i in {1..3}; do git clone --depth 1 https://github.com/CTSRD-CH/CTRPluginFramework /opt/CTRPluginFramework && break || sleep 10; done \
  && mkdir -p /opt/CTRPluginFramework/build
 
-WORKDIR /work
-CMD ["/bin/bash"]
+WORKDIR /app
+CMD make -f Makefile -j$(nproc)
