@@ -1,36 +1,29 @@
 # Dockerfile to prepare a build environment for Axiom
 # Installs devkitPro/devkitARM and related 3DS tools requested by the project.
-FROM ubuntu:22.04
+FROM devkitpro/devkitpro:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Basic build tools
+# Minimal extra packages useful for building and tooling
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    curl \
     git \
-    gnupg \
-    lsb-release \
+    curl \
     build-essential \
-    python3 \
-    unzip \
     cmake \
     ninja-build \
+    python3 \
+    unzip \
     pkg-config \
     meson \
  && rm -rf /var/lib/apt/lists/*
-
-# Install devkitpro pacman (dkp-pacman) and the devkitPro toolchain
-# This script is provided by devkitPro and will install into /opt/devkitpro
-RUN curl -fsSL https://devkitpro.org/devkitpro-pacman/install.sh | bash
 
 ENV DEVKITPRO=/opt/devkitpro
 ENV DEVKITARM=${DEVKITPRO}/devkitARM
 ENV PATH=${DEVKITPRO}/tools/bin:${DEVKITARM}/bin:${PATH}
 
-# Update devkitPro package database and install requested packages
-# Packages: devkitARM, libctru (>=2.5.0), makerom, bannertool, flips, armips, 3gxtool
+# Update dkp-pacman and install required devkitPro packages
+# See: https://devkitpro.org/wiki/devkitPro_pacman
 RUN ${DEVKITPRO}/tools/bin/dkp-pacman -Syu --noconfirm \
  && ${DEVKITPRO}/tools/bin/dkp-pacman -S --noconfirm \
     devkitARM \
@@ -39,13 +32,11 @@ RUN ${DEVKITPRO}/tools/bin/dkp-pacman -Syu --noconfirm \
     bannertool \
     flips \
     armips \
-    3gxtool
+    3gxtool || true
 
 # Clone CTRPluginFramework into the image so it's available for builds
 RUN git clone --depth 1 https://github.com/CTSRD-CH/CTRPluginFramework /opt/CTRPluginFramework \
- && mkdir -p /opt/CTRPluginFramework/build \
- && cd /opt/CTRPluginFramework/build \
- && cmake .. || true
+ && mkdir -p /opt/CTRPluginFramework/build
 
 WORKDIR /work
 CMD ["/bin/bash"]
