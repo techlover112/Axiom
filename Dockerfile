@@ -35,7 +35,7 @@ RUN ${DEVKITPRO}/tools/bin/dkp-pacman -Syu --noconfirm \
     3gxtool || true
 
 # Clone CTRPluginFramework into the image so it's available for builds
-RUN git clone --depth 1 https://github.com/CTSRD-CH/CTRPluginFramework /opt/CTRPluginFramework \
+RUN for i in {1..3}; do git clone --depth 1 https://github.com/CTSRD-CH/CTRPluginFramework /opt/CTRPluginFramework && break || sleep 10; done \
  && mkdir -p /opt/CTRPluginFramework/build
 
 WORKDIR /work
