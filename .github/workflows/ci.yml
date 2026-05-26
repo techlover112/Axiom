@@ -1,20 +1,20 @@
 name: Makefile CI
+permissions: 
+  contents: read
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-  workflow_dispatch:
+- push
+- pull_request
+- workflow_dispatch
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v4
-
+    - name: build toolchain container
+      run: docker build . -t builder
+    - uses: a
     - name: Install dependencies
       run: make
 
