@@ -1,6 +1,6 @@
 # Dockerfile to prepare a build environment for Axiom
 # Installs devkitPro/devkitARM and related 3DS tools requested by the project.
-FROM devkitpro/devkitpro:latest
+FROM devkitpro/devkitarm:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
 
